@@ -10,8 +10,7 @@ namespace WpfEdgeDetection
     public partial class MainWindow : Window
     {
         private const int m_nMaskSize = 3;
-        private const int m_nFilterMax = 1;
-        private double[,] m_dMask;
+        private short[,] m_nMask;
         private BitmapImage m_bitmapImageOriginal;
         private WriteableBitmap m_bitmapImageFilter;
         private string m_strOpenFileName;
@@ -25,11 +24,11 @@ namespace WpfEdgeDetection
             btnFilterStart.IsEnabled = false;
             btnStop.IsEnabled = false;
 
-            m_dMask = new double[m_nMaskSize, m_nMaskSize]
+            m_nMask = new short[m_nMaskSize, m_nMaskSize]
             {
-                {1.0,  1.0, 1.0},
-                {1.0, -8.0, 1.0},
-                {1.0,  1.0, 1.0}
+                {1,  1, 1},
+                {1, -8, 1},
+                {1,  1, 1}
             };
 
             m_bitmapImageOriginal = null;
@@ -131,7 +130,7 @@ namespace WpfEdgeDetection
             bool bResult = true;
             int nWidthSize = m_bitmapImageOriginal.PixelWidth;
             int nHeightSize = m_bitmapImageOriginal.PixelHeight;
-            int nMasksize = m_dMask.GetLength(0);
+            int nMasksize = m_nMask.GetLength(0);
 
             m_bitmapImageFilter = new WriteableBitmap(m_bitmapImageOriginal);
             m_bitmapImageFilter.Lock();
@@ -153,40 +152,32 @@ namespace WpfEdgeDetection
 
                         byte* pPixel = (byte*)m_bitmapImageFilter.BackBuffer + nIndexHeight * m_bitmapImageFilter.BackBufferStride + nIndexWidth * 4;
 
-                        double dCalB = 0.0;
-                        double dCalG = 0.0;
-                        double dCalR = 0.0;
-                        double dCalA = 0.0;
+                        long lCalB = 0;
+                        long lCalG = 0;
+                        long lCalR = 0;
                         int nIndexWidthMask;
                         int nIndexHightMask;
-                        int nFilter = 0;
 
-                        while (nFilter < m_nFilterMax)
+                        for (nIndexHightMask = 0; nIndexHightMask < nMasksize; nIndexHightMask++)
                         {
-                            for (nIndexHightMask = 0; nIndexHightMask < nMasksize; nIndexHightMask++)
+                            for (nIndexWidthMask = 0; nIndexWidthMask < nMasksize; nIndexWidthMask++)
                             {
-                                for (nIndexWidthMask = 0; nIndexWidthMask < nMasksize; nIndexWidthMask++)
+                                if (nIndexWidth + nIndexWidthMask > 0 &&
+                                    nIndexWidth + nIndexWidthMask < nWidthSize &&
+                                    nIndexHeight + nIndexHightMask > 0 &&
+                                    nIndexHeight + nIndexHightMask < nHeightSize)
                                 {
-                                    if (nIndexWidth + nIndexWidthMask > 0 &&
-                                        nIndexWidth + nIndexWidthMask < nWidthSize &&
-                                        nIndexHeight + nIndexHightMask > 0 &&
-                                        nIndexHeight + nIndexHightMask < nHeightSize)
-                                    {
-                                        byte* pPixel2 = (byte*)m_bitmapImageFilter.BackBuffer + (nIndexHeight + nIndexHightMask) * m_bitmapImageFilter.BackBufferStride + (nIndexWidth + nIndexWidthMask) * 4;
+                                    byte* pPixel2 = (byte*)m_bitmapImageFilter.BackBuffer + (nIndexHeight + nIndexHightMask) * m_bitmapImageFilter.BackBufferStride + (nIndexWidth + nIndexWidthMask) * 4;
 
-                                        dCalB += pPixel2[0] * m_dMask[nIndexWidthMask, nIndexHightMask];
-                                        dCalG += pPixel2[1] * m_dMask[nIndexWidthMask, nIndexHightMask];
-                                        dCalR += pPixel2[2] * m_dMask[nIndexWidthMask, nIndexHightMask];
-                                        dCalA += pPixel2[3] * m_dMask[nIndexWidthMask, nIndexHightMask];
-                                    }
+                                    lCalB += pPixel2[0] * m_nMask[nIndexWidthMask, nIndexHightMask];
+                                    lCalG += pPixel2[1] * m_nMask[nIndexWidthMask, nIndexHightMask];
+                                    lCalR += pPixel2[2] * m_nMask[nIndexWidthMask, nIndexHightMask];
                                 }
                             }
-                            nFilter++;
                         }
-                        pPixel[0] = DoubleToByte(dCalB);
-                        pPixel[1] = DoubleToByte(dCalG);
-                        pPixel[2] = DoubleToByte(dCalR);
-                        pPixel[3] = DoubleToByte(dCalA);
+                        pPixel[0] = LongToByte(lCalB);
+                        pPixel[1] = LongToByte(lCalG);
+                        pPixel[2] = LongToByte(lCalR);
 
                         nCount++;
                     }
@@ -216,6 +207,24 @@ namespace WpfEdgeDetection
                 byteCnvValue = (byte)dValue;
             }
             return byteCnvValue;
+        }
+
+        public byte LongToByte(long lValue)
+        {
+            byte nCnvValue = 0;
+            if (lValue > 255.0)
+            {
+                nCnvValue = 255;
+            }
+            else if (lValue < 0)
+            {
+                nCnvValue = 0;
+            }
+            else
+            {
+                nCnvValue = (byte)lValue;
+            }
+            return nCnvValue;
         }
 
         private void BtnStop_Click(object sender, RoutedEventArgs e)
